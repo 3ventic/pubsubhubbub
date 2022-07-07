@@ -1,11 +1,25 @@
 {
-    "rules": {
-        "indent": 0,
-        "global-require": 0,
-        "no-await-in-loop": 0
-    },
-    "extends": ["nodemailer", "prettier"],
-    "parserOptions": {
-        "ecmaVersion": 2017
-    }
+	"rules": {
+		"indent": 0,
+		"global-require": 0,
+		"no-await-in-loop": 0
+	},
+	"extends": [
+		"nodemailer",
+		"prettier"
+	],
+	"parserOptions": {
+		"ecmaVersion": 2020,
+		"sourceType": "module"
+	},
+	"overrides": [
+		{
+			"files": [
+				"**/*.test.js"
+			],
+			"env": {
+				"jest": true
+			}
+		}
+	]
 }
