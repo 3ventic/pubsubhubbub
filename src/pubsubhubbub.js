@@ -124,6 +124,7 @@ class PubSubHubbub extends Stream {
 			headers: this.headers,
 			form,
 			encoding: 'utf-8',
+			dnsCache: false,
 		};
 
 		if (this.auth) {
