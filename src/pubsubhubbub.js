@@ -1,6 +1,6 @@
 'use strict';
 
-const request = require('request');
+const got = require('got');
 const http = require('http');
 const urllib = require('url');
 const Stream = require('stream').Stream;
@@ -36,7 +36,7 @@ class PubSubHubbub extends Stream {
             this.auth = {
                 user: options.username,
                 pass: options.password,
-                sendImmediately: options.sendImmediately || false
+                sendImmediately: options.sendImmediately || false,
             };
         }
     }
@@ -78,10 +78,9 @@ class PubSubHubbub extends Stream {
      * @param {String} topic Atom or RSS feed URL
      * @param {String} hub Hub URL
      * @param {String} [callbackUrl] Define callback url for the hub, do not use the default
-     * @param {Function} [callback] Callback function, might not be very useful
      */
-    subscribe(topic, hub, callbackUrl, callback) {
-        this.setSubscription('subscribe', topic, hub, callbackUrl, callback);
+    async subscribe(topic, hub, callbackUrl) {
+        await this.setSubscription('subscribe', topic, hub, callbackUrl);
     }
 
     /**
@@ -90,10 +89,9 @@ class PubSubHubbub extends Stream {
      * @param {String} topic Atom or RSS feed URL
      * @param {String} hub Hub URL
      * @param {String} [callbackUrl] Define callback url for the hub, do not use the default
-     * @param {Function} [callback] Callback function, might not be very useful
      */
-    unsubscribe(topic, hub, callbackUrl, callback) {
-        this.setSubscription('unsubscribe', topic, hub, callbackUrl, callback);
+    async unsubscribe(topic, hub, callbackUrl) {
+        await this.setSubscription('unsubscribe', topic, hub, callbackUrl);
     }
 
     /**
@@ -103,17 +101,11 @@ class PubSubHubbub extends Stream {
      * @param {String} topic Atom or RSS feed URL
      * @param {String} hub Hub URL
      * @param {String} [callbackUrl] Define callback url for the hub, do not use the default
-     * @param {Function} [callback] Callback function, might not be very useful
      */
-    setSubscription(mode, topic, hub, callbackUrl, callback) {
-        if (!callback && typeof callbackUrl === 'function') {
-            callback = callbackUrl;
-            callbackUrl = undefined;
-        }
-
+    async setSubscription(mode, topic, hub, callbackUrl) {
         // by default the topic url is added as a GET parameter to the callback url
         callbackUrl =
-            callbackUrl ||
+            (typeof callbackUrl === 'string' && callbackUrl) ||
             this.callbackUrl +
                 (this.callbackUrl.replace(/^https?:\/\//i, '').match(/\//) ? '' : '/') +
                 (this.callbackUrl.match(/\?/) ? '&' : '?') +
@@ -126,14 +118,14 @@ class PubSubHubbub extends Stream {
             'hub.callback': callbackUrl,
             'hub.mode': mode,
             'hub.topic': topic,
-            'hub.verify': 'async'
+            'hub.verify': 'async',
         };
 
         let postParams = {
             url: hub,
             headers: this.headers,
             form,
-            encoding: 'utf-8'
+            encoding: 'utf-8',
         };
 
         if (this.auth) {
@@ -146,39 +138,30 @@ class PubSubHubbub extends Stream {
 
         if (this.secret) {
             // do not use the original secret but a generated one
-            form['hub.secret'] = crypto
-                .createHmac('sha1', this.secret)
-                .update(topic)
-                .digest('hex');
+            form['hub.secret'] = crypto.createHmac('sha1', this.secret).update(topic).digest('hex');
         }
 
-        request.post(postParams, (error, response, responseBody) => {
-            if (error) {
-                if (callback) {
-                    return callback(error);
-                } else {
-                    return this.emit('denied', {
-                        topic,
-                        error
-                    });
-                }
-            }
+        try {
+            await got.post(postParams);
+        } catch (error) {
+            this.emit('denied', {
+                topic,
+                error,
+            });
+            return [error];
+        }
 
-            if (response.statusCode !== 202 && response.statusCode !== 204) {
-                let err = new Error('Invalid response status ' + response.statusCode);
-                err.responseBody = (responseBody || '').toString();
-                if (callback) {
-                    return callback(err);
-                } else {
-                    return this.emit('denied', {
-                        topic,
-                        error: err
-                    });
-                }
-            }
+        if (response.statusCode !== 202 && response.statusCode !== 204) {
+            let err = new Error('Invalid response status ' + response.statusCode);
+            err.responseBody = (responseBody || '').toString();
+            this.emit('denied', {
+                topic,
+                error: err,
+            });
+            return [err];
+        }
 
-            return callback && callback(null, topic);
-        });
+        return [null, topic];
     }
 
     // PRIVATE API
@@ -247,7 +230,7 @@ class PubSubHubbub extends Stream {
             case 'denied':
                 data = {
                     topic: params.query['hub.topic'],
-                    hub: params.query.hub
+                    hub: params.query.hub,
                 };
                 if (next) {
                     res.statusCode = 200;
@@ -255,7 +238,7 @@ class PubSubHubbub extends Stream {
                     res.send(params.query['hub.challenge'] || 'ok');
                 } else {
                     res.writeHead(200, {
-                        'Content-Type': 'text/plain'
+                        'Content-Type': 'text/plain',
                     });
                     res.end(params.query['hub.challenge'] || 'ok');
                 }
@@ -265,7 +248,7 @@ class PubSubHubbub extends Stream {
                 data = {
                     lease: Number(params.query['hub.lease_seconds'] || 0) + Math.round(Date.now() / 1000),
                     topic: params.query['hub.topic'],
-                    hub: params.query.hub
+                    hub: params.query.hub,
                 };
                 if (next) {
                     res.statusCode = 200;
@@ -273,7 +256,7 @@ class PubSubHubbub extends Stream {
                     res.send(params.query['hub.challenge']);
                 } else {
                     res.writeHead(200, {
-                        'Content-Type': 'text/plain'
+                        'Content-Type': 'text/plain',
                     });
                     res.end(params.query['hub.challenge']);
                 }
@@ -381,7 +364,7 @@ class PubSubHubbub extends Stream {
                 } else {
                     // http
                     res.writeHead(202, {
-                        'Content-Type': 'text/plain; charset=utf-8'
+                        'Content-Type': 'text/plain; charset=utf-8',
                     });
                     return res.end();
                 }
@@ -395,7 +378,7 @@ class PubSubHubbub extends Stream {
             } else {
                 // http
                 res.writeHead(204, {
-                    'Content-Type': 'text/plain; charset=utf-8'
+                    'Content-Type': 'text/plain; charset=utf-8',
                 });
                 res.end();
             }
@@ -405,7 +388,7 @@ class PubSubHubbub extends Stream {
                 hub,
                 callback: 'http://' + req.headers.host + req.url,
                 feed: Buffer.concat(bodyChunks, bodyLen),
-                headers: req.headers
+                headers: req.headers,
             });
         });
     }
@@ -430,7 +413,7 @@ class PubSubHubbub extends Stream {
         }
 
         res.writeHead(code, {
-            'Content-Type': 'text/html'
+            'Content-Type': 'text/html',
         });
 
         res.end(`<!doctype html>
@@ -462,6 +445,6 @@ class PubSubHubbub extends Stream {
  * @param {String} [headers] Custom headers to use for all HTTP requests
  * @return {Object} A PubSubHubbub server object
  */
-module.exports.createServer = function(options) {
+module.exports.createServer = function (options) {
     return new PubSubHubbub(options);
 };
