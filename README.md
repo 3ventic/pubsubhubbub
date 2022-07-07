@@ -1,6 +1,6 @@
 # PubSubHubbub subscriber
 
-PubSubHubbub subscriber module. Supports both 0.3 and 0.4 hubs. This is an ESM-modules fork of [pubsubhubbbub](https://github.com/andris9/pubsubhubbub), also removing the deprecated requests module in favor of got.
+PubSubHubbub subscriber module. Supports both 0.3 and 0.4 hubs. This is a fork of [pubsubhubbbub](https://github.com/andris9/pubsubhubbub) with deprecated requests dependency replaced with got, callbacks replaced with promises, and turned into an ESM module.
 
 **NB** Do not upgrade from v0.1.x - the API is totally different
 
@@ -76,13 +76,12 @@ Where
 
 Subscribe to a feed with
 
-    pubSubSubscriber.subscribe(topic, hub, callback)
+    pubSubSubscriber.subscribe(topic, hub)
 
 Where
 
 -   **topic** is the URL of the RSS/ATOM feed to subscribe to
 -   **hub** is the hub for the feed
--   **callback** (optional) is the callback function with an error object if the subscription failed
 
 Example:
 
@@ -96,25 +95,24 @@ Example:
 
     pubSubSubscriber.listen(port);
 
-    pubsub.on("listen", function(){
-        pubSubSubscriber.subscribe(topic, hub, function(err){
-            if(err){
-                console.log("Failed subscribing");
-            }
-        });
+    pubsub.on("listen", async function(){
+		try {
+        	await pubSubSubscriber.subscribe(topic, hub);
+		} catch (err) {
+			console.error(err);
+		}
     });
 
 ### Unsubscribe
 
 Unsubscribe from a feed with
 
-    pubSubSubscriber.unsubscribe(topic, hub, callback)
+    pubSubSubscriber.unsubscribe(topic, hub)
 
 Where
 
 -   **topic** is the URL of the RSS/ATOM feed to unsubscribe from
 -   **hub** is the hub for the feed
--   **callback** (optional) is the callback function with an error object if the unsubscribing failed
 
 Example:
 
@@ -128,12 +126,12 @@ Example:
 
     pubSubSubscriber.listen(port);
 
-    pubSubSubscriber.on("listen", function(){
-        pubSubSubscriber.unsubscribe(topic, hub, function(err){
-            if(err){
-                console.log("Failed unsubscribing");
-            }
-        });
+    pubSubSubscriber.on("listen", async function(){
+		try {
+        	await pubSubSubscriber.unsubscribe(topic, hub);
+		} catch (err) {
+			console.error(err);
+		}
     });
 
 ## Notifications
