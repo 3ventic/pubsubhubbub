@@ -1,6 +1,6 @@
 # PubSubHubbub subscriber
 
-PubSubHubbub subscriber module. Supports both 0.3 and 0.4 hubs.
+PubSubHubbub subscriber module. Supports both 0.3 and 0.4 hubs. This is an ESM-modules fork of [pubsubhubbbub](https://github.com/andris9/pubsubhubbub), also removing the deprecated requests module in favor of got.
 
 **NB** Do not upgrade from v0.1.x - the API is totally different
 
